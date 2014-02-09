@@ -83,7 +83,9 @@ void offsetToHex(Ngram *this, int offset, char *str) {
   } else if (this->n == 2) {
     sprintf(str, "0x%02x%02x(%c%c)", offset / 256, offset % 256, offset / 256, offset % 256);
   } else if (this->n == 3) {
-    sprintf(str, "0x%02x%02x%02x(%c%c%c)", offset / 65336, (offset / 256) % 256, offset % 256, offset / 65336, (offset / 256) % 256, offset % 256);
+    sprintf(str, "0x%02x%02x%02x(%c%c%c)",
+        offset / 65336, (offset / 256) % 256, offset % 256,
+        offset / 65336, (offset / 256) % 256, offset % 256);
   }
 }; 
 
@@ -113,4 +115,28 @@ static void add_ngram(Ngram *this, int n) {
 
 static void remove_ngram(Ngram *this, int n) {
   this->ngrams[getOffset(this, n)]--;
+}
+
+
+void range_init(Range *this, unsigned char *data, unsigned int size, Plugin **plugins) {
+  plugin_init(&(this->plugin), data, size);
+  this->plugin.set_start = &range_set_start;
+  this->plugin.set_width = &range_set_width;
+  this->plugins = plugins;
+}
+
+void range_set_start(Plugin *this, int start) {
+  int i;
+  Plugin **plugins = ((Range *)this)->plugins;
+  for (i = 0; plugins[i] != NULL; i++) {
+    plugins[i]->set_start(plugins[i], start);
+  }
+}
+
+void range_set_width(Plugin *this, int width) {
+  int i;
+  Plugin **plugins = ((Range *)this)->plugins;
+  for (i = 0; plugins[i] != NULL; i++) {
+    plugins[i]->set_width(plugins[i], width);
+  }
 }

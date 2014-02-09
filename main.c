@@ -8,14 +8,15 @@ int main(int argc, char **argv) {
 
   Ngram *n2 = malloc(sizeof(Ngram));
   ngram_init(n2, (unsigned char *) data, strlen(data), 2);
-
   Ngram *n3 = malloc(sizeof(Ngram));
   ngram_init(n3, (unsigned char *) data, strlen(data), 3);
 
-  n2->plugin.set_width((Plugin *)n2, strlen(data));
+  Plugin *plugins[] = {(Plugin *)n2, (Plugin *)n3, NULL};
+  Range *range = malloc(sizeof(Range));
+  range_init(range, (unsigned char *) data, strlen(data), plugins);
+  
+  range->plugin.set_width((Plugin *)range, strlen(data));
   print(n2);
-
-  n3->plugin.set_width((Plugin *)n3, strlen(data));
   print(n3);
   return 0;
 }
