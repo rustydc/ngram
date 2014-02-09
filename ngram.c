@@ -3,64 +3,78 @@
 #include <stdlib.h>
 #include "ngram.h"
 
-static void addNgram(Ngram *this, int n);
-static void removeNgram(Ngram *this, int n);
+static void add_ngram(Ngram *this, int n);
+static void remove_ngram(Ngram *this, int n);
 
-Ngram *new(unsigned char *data, unsigned int size, int n) {
-  Ngram *this = malloc(sizeof(Ngram)); 
+void plugin_init(Plugin *this, unsigned char *data, unsigned int size);
+void ngram_init(Ngram *this, unsigned char *data, unsigned int size, int n);
+void ngram_set_start(Plugin *this, int start);
+void ngram_set_width(Plugin *this, int width);
+void print(Ngram *this);
+
+void plugin_init(Plugin *this, unsigned char *data, unsigned int size) {
   this->data = data;
   this->size = size;
+  this->start = 0;
+  this->width = 0;
+}
+
+void ngram_init(Ngram *this, unsigned char *data, unsigned int size, int n) {
+  plugin_init(&(this->plugin), data, size);
+  this->plugin.set_start = &ngram_set_start;
+  this->plugin.set_width = &ngram_set_width;
   this->n = n;
   this->ngrams = malloc(sizeof(unsigned int) * (1 << (8 * n)));
-  return this;
 }
 
-void setStart(Ngram *this, int n) {
-  assert(n > 0 && n <= this->size);
-
-  // Increasing start.
-  while (n > this->start && this->start + this->n <= this->end) {
-    removeNgram(this, this->start);
-    this->start++;
-  }
-  while (n > this->start) {
-    this->start++;
-  }
-
-  // Decreasing start, no n-grams yet.
-  while (n < this->start && this->start + this->n > this->end) {
-    this->start--;
-  }
-  while (n < this->start) {
-    this->start--;
-    addNgram(this, this->start);
-  }
-
-  assert(this->start <= this->end);
+void ngram_destroy(Ngram *this) {
+  free(this->ngrams);
 }
 
-void setEnd(Ngram *this, int n) {
-  assert(n > 0 && n <= this->size);
+void ngram_set_start(Plugin *this, int start) {
+  int n = ((Ngram *)this)->n;
+  assert(start > 0 && start + this->width <= this->size);
 
-  // Increasing end; no n-grams yet.
-  while (n > this->end && this->start + this->n >= this->end) {
-    this->end++;
-  }
-  while (n > this->end) {
-    addNgram(this, this->end);
-    this->end++;
+  if (this->width < n) {
+    this->start = start;
+    return;
   }
 
-  // Decreasing end.
-  while (n < this->end && this->start + this->n <= this->end) {
-    this->end--;
-    removeNgram(this, this->end);
+  // Always adds one and removes one.
+  while (start > this->start) {
+    remove_ngram((Ngram *)this, this->start);
+    add_ngram((Ngram *)this, this->start + this->width - n); // TODO: check off by one.
+    this->start++;
   }
-  while (n < this->end) {
-    this->end--;
+  while (start < this->start) {
+    add_ngram((Ngram *)this, this->start);
+    remove_ngram((Ngram *)this, this->start + this->width - n);
+    this->start--;
+  }
+}
+
+void ngram_set_width(Plugin *this, int width) {
+  int n = ((Ngram *)this)->n;
+  assert(width > 0 && this->start + width <= this->size);
+
+  // Increasing width; no n-grams yet.
+  while (width > this->width && this->width < n) {
+    this->width++;
+  }
+  while (width > this->width) {
+    add_ngram((Ngram *)this, this->start + this->width - n);
+    this->width++;
   }
 
-  assert(this->start <= this->end);
+  // Decreasing width.
+  while (width < this->width && n <= this->width) {
+    this->width--;
+    remove_ngram((Ngram *)this, this->start + this->width - n);
+    this->width--;
+  }
+  if (width < this->width) {
+    this->width = width;
+  }
 }
 
 void offsetToHex(Ngram *this, int offset, char *str) {
@@ -88,15 +102,15 @@ static int getOffset(Ngram *this, int n) {
   int i;
   int offset = 0;
   for (i = 0; i < this->n; i++) {
-    offset = (offset << 8) + this->data[n++];
+    offset = (offset << 8) + ((Plugin *)this)->data[n++];
   }
   return offset;
 }
 
-static void addNgram(Ngram *this, int n) {
+static void add_ngram(Ngram *this, int n) {
   this->ngrams[getOffset(this, n)]++;
 }
 
-static void removeNgram(Ngram *this, int n) {
+static void remove_ngram(Ngram *this, int n) {
   this->ngrams[getOffset(this, n)]--;
 }

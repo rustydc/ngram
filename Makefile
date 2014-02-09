@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -Wall -Werror -Wno-array-bounds
+CFLAGS=-g -Wall -Werror -Wno-array-bounds -ferror-limit=5
 OBJECTS=$(patsubst %.c, %.o, $(wildcard *.c))
 HEADERS=$(wildcard *.h)
 
